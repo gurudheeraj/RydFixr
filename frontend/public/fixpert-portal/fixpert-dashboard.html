@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Fixpert Dashboard</title>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"/>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<!-- Leaflet Routing Machine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.min.js"></script>
+
+
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f9f9f9;
+        color: #333;
+      }
+      header {
+        background-color: #10b981;
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      header h1 { flex: 1; }
+      nav {
+        display: flex;
+        gap: 1.2rem;
+        align-items: center;
+      }
+      nav a {
+        color: white;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .menu-toggle {
+        display: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        margin-left: auto;
+      }
+      .signout-btn {
+        background: white;
+        color: #10b981;
+        border: none;
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+        font-weight: bold;
+        cursor: pointer;
+      }
+  
+      .container {
+        display: flex;
+        height: calc(100vh - 70px);
+        padding: 1rem;
+        gap: 2%;
+      }
+      .left-half, .right-half {
+        width: 48%;
+      }
+      .right-half {
+        background-color: #eef9f3;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+  
+      .location-section,
+      .request-section {
+        background: #fff;
+        border-radius: 10px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+      }
+  
+      .section-header {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: #10b981;
+      }
+  
+      .input-wrapper {
+        position: relative;
+        background-color: #fff;
+        border: 1px solid #ccc;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        padding-left: 3rem;
+        display: flex;
+        align-items: center;
+        height: 60px;
+        margin-bottom: 1rem;
+      }
+      .input-wrapper i {
+        position: absolute;
+        left: 1rem;
+        color: #10b981;
+        font-size: 1.25rem;
+      }
+      .input-wrapper input {
+        border: none;
+        outline: none;
+        font-size: 1.1rem;
+        width: 100%;
+        background: transparent;
+        padding-right: 1rem;
+      }
+  
+      .request-card {
+        background-color: #ecfdf5;
+        border-left: 5px solid #10b981;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+      }
+  
+      .request-card h4 { margin-bottom: 0.25rem; color: #0f5132; }
+      .request-card p { margin-bottom: 0.5rem; font-size: 0.95rem; }
+  
+      .request-card button {
+        padding: 0.4rem 1rem;
+        border: none;
+        border-radius: 5px;
+        margin-right: 0.5rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+  
+      .accept { background-color: #10b981; color: white; }
+      .decline { background-color: #dc3545; color: white; }
+  
+      #map {
+        height: 85%;
+        width: 100%;
+        border-radius: 8px;
+      }
+  
+      #profilePanel {
+        transition: transform 0.3s ease;
+        transform: translateX(100%);
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 50%;
+        height: 100%;
+        background: white;
+        box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+      }
+  
+      #profilePanel.show {
+        transform: translateX(0);
+      }
+  
+  
+      #profilePanel button {
+        float: right;
+        background: #10b981;
+        color: #fff;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+      }
+  
+      @media (max-width: 768px) {
+        .container { flex-direction: column; }
+        .left-half, .right-half {
+          width: 100%;
+          margin-bottom: 1rem;
+        }
+        nav { display: none; flex-direction: column; width: 100%; margin-top: 1rem; }
+        nav.show { display: flex; }
+        .menu-toggle { display: block; }
+      }
+      footer {
+        background: white;
+        color: #7F7F7F;
+        text-align: center;
+        padding: 2rem;
+        margin: 16px 0px;
+        font-family:sans-serif,Noto Sans,Noto Sans CJK;
+        font: 26px;
+      }
+    </style>
+
+  </head>
+
+  <body>
+    <!-- Header and Navigation -->
+    <header>
+      <h1>Fixpert Dashboard</h1>
+      <div class="menu-toggle" onclick="toggleMenu()">
+        <i class="fas fa-bars"></i>
+      </div>
+      <nav id="navbar">
+        <a href="#profile" onclick="toggleProfile()" id="profilePanelLink">Profile</a>
+        <a href="#support">Help & Support</a>
+        <a href="#earnings">Earnings Tracker</a>
+        <a href="#schedules">Schedules</a>
+        <button class="signout-btn" onclick="signOut()" id="signOutButton">Sign Out</button>
+      </nav>
+    </header>
+
+    <!-- Main Layout -->
+    <div class="container">
+      <!-- Left Panel -->
+      <div class="left-half">
+        <div class="location-section">
+          <div class="input-wrapper">
+            <i class="fas fa-map-marker-alt"></i>
+            <input type="text" id="fixpertLocation" placeholder="Fixpert Location" readonly />
+          </div>
+          <div class="input-wrapper">
+            <i class="fas fa-dot-circle"></i>
+            <input type="text" id="customerLocation" placeholder="Customer Location" readonly />
+          </div>
+        </div>
+
+        <div class="request-section" id="customerRequestContainer">
+          <div class="section-header">Customer Requests</div>
+        </div>
+
+        <footer>
+          &copy; 2025 rydFixr services. All rights reserved.
+        </footer>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="right-half">
+        <div class="section-header">Map Section</div>
+        <div id="fixpertMap" style="height: 400px; width: 100%;"></div>
+      </div>
+
+      <!-- Profile Panel -->
+      <div id="profilePanel" style="position: fixed; top: 70px; right: 0; width: 60%; max-width: 500px; height: 30%; background: white; box-shadow: -4px 0 10px rgba(0, 0, 0, 0.2); transform: translateX(100%); transition: transform 0.3s ease-in-out; z-index: 1000; padding: 1rem; overflow-y: auto;">
+        <button onclick="toggleProfile()">Close</button>
+        <h2 style="margin-bottom: 1rem;">Fixpert Profile</h2>
+        <div id="profileDetails" style="line-height: 1.8;"></div>
+      </div>
+    </div>
+
+    <!-- Main Script -->
+
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        const fixpert = JSON.parse(localStorage.getItem('fixpertData'));
+        if (!fixpert) {
+          alert("Fixpert not logged in. Redirecting to login.");
+          return window.location.href = 'login.html';
+        }
+    
+        console.log("Fixpert Data from LocalStorage:", fixpert);
+    
+        const socket = io("http://localhost:5001");
+    
+        let map, fixpertMarker, customerMarker, routingControl;
+        let fixpertCoords = {};
+        let currentCustomerCoords = null;
+    
+        // Init profile panel
+        document.querySelector('#profilePanelLink')?.addEventListener('click', toggleProfile);
+        document.getElementById('signOutButton')?.addEventListener('click', signOut);
+    
+        function openProfile() {
+          const profileDiv = document.getElementById('profileDetails');
+          profileDiv.innerHTML = `
+            <p><strong>Fixpert-ID:</strong> ${fixpert.mechanicId || 'N/A'}</p>
+            <p><strong>Email:</strong> ${fixpert.email || 'N/A'}</p>
+            <p><strong>Name:</strong> ${fixpert.name || 'N/A'}</p>
+            <p><strong>Phone:</strong> ${fixpert.phone || 'N/A'}</p>
+          `;
+        }
+    
+        function toggleProfile(e) {
+          e.preventDefault();
+          const panel = document.getElementById('profilePanel');
+          const isHidden = panel.style.transform === 'translateX(100%)';
+          panel.style.transform = isHidden ? 'translateX(0%)' : 'translateX(100%)';
+          if (isHidden) openProfile();
+        }
+    
+        function signOut() {
+          localStorage.removeItem('fixpertLoggedIn');
+          localStorage.removeItem('fixpertData');
+          window.location.href = "login.html";
+        }
+
+
+        if (!navigator.geolocation) {
+          alert("Geolocation not supported");
+          return;
+        }
+    
+        navigator.geolocation.getCurrentPosition(position => {
+          fixpertCoords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          const locationInput = document.getElementById('fixpertLocation'); // Replace with your actual input ID
+          fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${fixpertCoords.lat}&lon=${fixpertCoords.lng}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = data.display_name;
+              if (locationInput) locationInput.value = address;
+            });
+
+          console.log("Fixpert Coords Before Map Init:", fixpertCoords);
+    
+          initMap();
+    
+          const fixpertId = fixpert?.mechanicId;
+          socket.emit('register-fixpert', fixpertId);
+          socket.emit('fixpert-location', { fixpertId, location: fixpertCoords });
+    
+          startLocationUpdates(fixpertId);
+        },
+        error => {
+          console.error("Geolocation error:", error);
+          alert("Please enable location access in your browser.");
+        });
+    
+        function initMap() {
+          map = L.map('fixpertMap').setView([fixpertCoords.lat, fixpertCoords.lng], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+          }).addTo(map);
+    
+          fixpertMarker = L.marker(fixpertCoords).addTo(map)
+            .bindPopup('You (Fixpert)').openPopup();
+        }
+        console.log("Map initialized!");
+
+    
+        socket.on('new-customer-request', ({ name, location, distance, issue }) => {
+          const container = document.getElementById('customerRequestContainer');
+          const requestCard = document.createElement('div');
+          requestCard.className = 'request-card';
+          requestCard.innerHTML = `
+            <h4>${name}</h4>
+            <p>Issue: ${issue}</p>
+            <p>Distance: ${distance.toFixed(2)} km</p>
+            <button class="accept" id="acceptRequestBtn">Accept</button>
+            <button class="decline">Decline</button>
+          `;
+          container.appendChild(requestCard);
+
+          document.getElementById('acceptRequestBtn').addEventListener('click', acceptRequest);
+
+        });
+    
+        function acceptRequest() {
+          if (!currentCustomerCoords) {
+            alert("Customer coordinates not available.");
+            return;
+          }
+    
+          const customer = JSON.parse(localStorage.getItem('customer'));
+          if (!customer || !customer.email) {
+            alert("Customer email not found. Please log in again.");
+            window.location.href = 'login.html';
+            return;
+          }
+    
+          const fixpertId = fixpert.mechanicId;
+          const customerEmail = customer.email;
+    
+          socket.emit('request-accepted', {
+            customerEmail,
+            fixpertInfo: {
+              fixpertId,
+              location: fixpertCoords
+            }
+          });
+    
+          if (routingControl) map.removeControl(routingControl);
+    
+          routingControl = L.Routing.control({
+            waypoints: [
+              L.latLng(fixpertCoords.lat, fixpertCoords.lng),
+              L.latLng(currentCustomerCoords.lat, currentCustomerCoords.lng)
+            ],
+            routeWhileDragging: false
+          }).addTo(map);
+        }
+    
+        function startLocationUpdates(fixpertId) {
+          setInterval(() => {
+            navigator.geolocation.getCurrentPosition(position => {
+              updatedCoords = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+              };
+              fixpertCoords = updatedCoords;
+    
+              if (fixpertMarker) {
+                fixpertMarker.setLatLng(fixpertCoords);
+              }
+              socket.emit('fixpert-location', { fixpertId, location: updatedCoords });
+            });
+          }, 5000);
+        }
+      });
+    </script>
+    
+     
+</body>
+</html>
