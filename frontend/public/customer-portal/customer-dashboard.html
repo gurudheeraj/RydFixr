@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-sA+vx6k3VUS2UgJ3CsQ9MzkXnHThWdr2Mta0V8FFQ1s=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j1++o0E+hS8rZ1p6VhtFjVJpMEbZ84Sy2fD9g8M=" crossorigin=""></script>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #F4FAFF;
+      color: #333;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: #0f52ba;
+      color: white;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      flex: 1;
+    }
+
+    nav {
+      display: flex;
+      gap: 1.2rem;
+      align-items: center;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .menu-toggle {
+      display: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      margin-left: auto;
+    }
+
+    .signout-btn {
+      background: white;
+      color: #0f52ba;
+      border: none;
+      border-radius: 6px;
+      padding: 0.4rem 0.8rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .container {
+      display: flex;
+      flex: 1;
+      height: calc(100% - 70px);
+    }
+
+    .left-half, .right-half {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5% 1% 1.5% 2%;
+      gap: 3%;
+    }
+
+    .left-half .section,
+    .right-half .section {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 2px rgba(0,0,0,0.05);
+      padding: 1rem;
+    }
+
+    .right-half {
+      background-color: #f4faff;
+      padding: 1.5% 2% 1.5% 1%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-header {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: #0f52ba;
+      align-self: flex-start;
+      padding-left: 10%;
+    }
+
+    .input-wrapper {
+      position: relative;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      border-radius: 12px;
+      padding-left: 3rem;
+      display: flex;
+      align-items: center;
+      height: 60px;
+      width: 80%;
+      margin-bottom: 1rem;
+    }
+
+    .input-wrapper i {
+      position: absolute;
+      left: 1rem;
+      color: #0f52ba;
+      font-size: 1.25rem;
+    }
+
+    .input-wrapper input {
+      border: none;
+      outline: none;
+      font-size: 1.1rem;
+      width: 100%;
+      background: transparent;
+      padding-right: 1rem;
+    }
+
+    .book-btn {
+      background: linear-gradient(135deg, #0f52ba, #3f8efc);
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(15, 82, 186, 0.3);
+      height: 60px;
+      width: 80%;
+    }
+
+    .book-btn:hover {
+      background: linear-gradient(135deg, #0d47a1, #2b72d6);
+      box-shadow: 0 6px 15px rgba(15, 82, 186, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .right-half .section-header {
+      padding-left: 10%;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .left-half, .right-half {
+        width: 100%;
+      }
+
+      .input-wrapper, .book-btn {
+        width: 90% !important;
+      }
+      nav { display: none; flex-direction: column; width: 100%; margin-top: 1rem; }
+      nav.show { display: flex; }
+      .menu-toggle { display: block; }
+    }
+    .map-container {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #liveMap {
+      width: 100%;
+      height: 100%;
+    }
+    footer {
+      background: #ffffff;
+      border-radius: 12px;
+      color: #7F7F7F;
+      text-align: center;
+      padding: 2rem;
+      margin: 16px 0px;
+      font-family:sans-serif,Noto Sans,Noto Sans CJK;
+      font: 26px;
+    }
+  </style>
+
+</head>
+<body>
+  <header>
+    <h1>Customer Dashboard</h1>
+    <div class="menu-toggle" onclick="toggleMenu()"><i class="fas fa-bars"></i></div>
+    <nav id="navbar">
+      <a href="#profile" id="profilePanelLink" onclick="toggleProfile()">Profile</a>
+      <a href="#support">Help & Support</a>
+      <a href="#servicings">My Servicings</a>
+      <a href="#reschedules">Reschedules</a>
+      <button class="signout-btn" onclick="signOut()">Sign Out</button>
+    </nav>
+    
+  </header>
+
+  <div class="container">
+    <!-- LEFT SIDE -->
+    <div class="left-half">
+      <div class="section">
+        <div class="section-header">Your Location</div>
+        <div class="input-wrapper">
+          <i class="fas fa-map-marker-alt"></i>
+          <input type="text" id="sourceLocation" placeholder="Detecting your location..." readonly />
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">Bike Issue</div>
+        <div class="input-wrapper">
+          <i class="fas fa-tools"></i>
+          <input type="text" id="bikeIssue" placeholder="Describe the issue..." />
+        </div>
+        <button class="book-btn" onclick="bookFixpert()">Book Fixpert</button>
+      </div>
+
+      <footer>
+        &copy; 2025 rydFixr services. All rights reserved.
+      </footer>
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="right-half">
+      <div class="section">
+        <div class="section-header">Map Section</div>
+        <div class="map-container">
+          <div id="liveMap"></div>
+        </div>
+      </div>
+    </div>
+    <div id="profilePanel" style="position: fixed;
+      top: 10;
+      right: 0;
+      width: 60%;
+      max-width: 500px;
+      height: 30%;
+      background: white;
+      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.2);
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+      z-index: 1000;
+      padding: 1rem;
+      overflow-y: auto;">
+      <button onclick="toggleProfile()"></button>
+      <h2 style="margin-bottom: 1rem;">Customer Profile</h2>
+      <div id="profileDetails" style="line-height: 1.8;"></div>
+    </div>
+  </div>
+
+  
+
+  <script>
+    // Profile Section
+    document.querySelector('#profilePanelLink').addEventListener('click', openProfile);
+
+    function openProfile(e) {
+      e.preventDefault();
+      const panel = document.getElementById('profilePanel');
+      const profileDiv = document.getElementById('profileDetails');
+
+      const name = localStorage.getItem('customerName') || "Not Available";
+      const phone = localStorage.getItem('customerPhone') || "Not Available";
+      const email = localStorage.getItem('customerEmail') || "Not Available";
+
+      profileDiv.innerHTML = `
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Email:</strong> ${email}</p>
+      `;
+      panel.style.transform = "translateX(0%)";
+    }
+    function toggleProfile() {
+      const panel = document.getElementById('profilePanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+    function toggleMenu() {
+      document.getElementById('navbar').classList.toggle('show');
+    }
+
+    if (!localStorage.getItem('customerLoggedIn')) {
+      window.location.href = 'login.html';
+    }
+
+    const socket = io("http://localhost:5000"); // Point to fixpert-server
+    let map, customerMarker, fixpertMarker, route;
+    let customerCoords = {};
+
+  // Auto-detect customer location
+    navigator.geolocation.getCurrentPosition(position => {
+      customerCoords = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      };
+      initMap();
+      socket.emit('customer-location', customerCoords); // Send to server
+    });
+
+    function initMap() {
+      map = L.map('liveMap').setView([customerCoords.lat, customerCoords.lng], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      customerMarker = L.marker([customerCoords.lat, customerCoords.lng]).addTo(map)
+        .bindPopup('You are here').openPopup();
+    }
+
+  // Listen when fixpert accepts request
+    socket.on('fixpert-accepted', ({ fixpertLocation }) => {
+      addFixpertMarker(fixpertLocation);
+      drawRoute(fixpertLocation);
+    });
+
+  // Track fixpert in real time
+    socket.on('fixpert-location-update', coords => {
+      if (fixpertMarker) fixpertMarker.setLatLng(coords);
+      drawRoute(coords);
+    });
+
+    function addFixpertMarker(coords) {
+      if (!fixpertMarker) {
+        fixpertMarker = L.marker(coords, { icon: L.icon({ iconUrl: 'fixpert-icon.png', iconSize: [30, 30] }) }).addTo(map)
+          .bindPopup('Fixpert is on the way!');
+      }
+    }
+
+    function drawRoute(fixpertCoords) {
+      if (route) map.removeLayer(route);
+      route = L.polyline([ [customerCoords.lat, customerCoords.lng], [fixpertCoords.lat, fixpertCoords.lng] ],
+        { color: 'blue', weight: 4 }).addTo(map);
+    }
+
+    function signOut() {
+      localStorage.removeItem('customerLoggedIn');
+      window.location.href = 'login.html';
+    }
+
+
+
+  </script>
+</body>
+</html>
